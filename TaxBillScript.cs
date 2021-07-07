@@ -137,11 +137,11 @@ public class TaxBillScript : MonoBehaviour
         TaxBill.scene_name = SceneManager.GetActiveScene().name;
         TaxBill.root_path = Application.persistentDataPath + "/" + TaxBill.scene_name;
         TaxBill.background = Resources.LoadAll<Texture>("Background");
-        TaxBill.ocr_obj_list = new List<string>() { "FixedText11_part1", "FixedText11_part2", "FixedText11_part3" };//func_collect.GetOcrObjName(TaxBill.templete_name);
-        TaxBill.model_path = "Meshes/flat_card_32x48";
+        TaxBill.ocr_obj_list = func_collect.GetOcrObjName(TaxBill.templete_name); //new List<string>() { "FixedText11_part1", "FixedText11_part2", "FixedText11_part3" };
+        TaxBill.model_path = "Meshes/real_card"; //flat_card_32x48
         TaxBill.mat_path = "Materials/Receipt/TaxbillRenderTextureMat"; //매터리얼 바꿔야됨
         TaxBill.image_size = func_collect.TempleteImageSize();
-        TaxBill.mesh_tess = new Vector2Int(32, 48);
+        TaxBill.mesh_tess = new Vector2Int(16, 24); //new Vector2Int(32, 48)
         func_collect.CreateSaveFolder();
     }
     void Update()
@@ -161,7 +161,7 @@ public class TaxBillScript : MonoBehaviour
                 func_collect.CreateModelFromTemplete(TaxBill.model_path, TaxBill.mat_path);
 
                 Background.ChangeBackground(TaxBill.background);
-                CaptureTool.RandomizeCamera("Main_Model", true);
+                CaptureTool.RandomizeCamera("Main_Model",true);
                 //Effect_Env.TempleteReflectLight_Point(TaxBill.ocr_obj_list);
                 //Effect_Env.CharShadowOrLight_On(TaxBill.ocr_obj_list);
                 Util.AntiAliasingFunc(true);

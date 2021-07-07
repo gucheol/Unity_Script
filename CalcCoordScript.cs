@@ -94,11 +94,17 @@ namespace CalcCoord_Script
             int i0 = (int)(tu / du);
             int j0 = (int)(tv / dv);
 
-            if (i0 > mesh_tess.x - 1) i0 = mesh_tess.x - 1;
-            if (j0 > mesh_tess.y - 1) j0 = mesh_tess.y - 1;
+            //if (i0 > mesh_tess.x - 1) i0 = mesh_tess.x - 1;
+            //if (j0 > mesh_tess.y - 1) j0 = mesh_tess.y - 1;
 
-            int i1 = (i0 < mesh_tess.x - 1 ? i0 + 1 : i0);
-            int j1 = (j0 < mesh_tess.y - 1 ? j0 + 1 : j0);
+            //int i1 = (i0 < mesh_tess.x - 1 ? i0 + 1 : i0);
+            //int j1 = (j0 < mesh_tess.y - 1 ? j0 + 1 : j0);
+
+            if (i0 > mesh_tess.x) i0 = mesh_tess.x;
+            if (j0 > mesh_tess.y) j0 = mesh_tess.y;
+
+            int i1 = (i0 < mesh_tess.x ? i0 + 1 : i0);
+            int j1 = (j0 < mesh_tess.y ? j0 + 1 : j0);
 
             //
             Vector3 p_O = GetVertex(i0, j0);
