@@ -22,6 +22,10 @@ using CalcCoord_Script;
 
 public class func_collect
 {
+    class CameraAngle
+    {
+        public Vector3 camera_angle;
+    }
     //util
     public static void CreateSaveFolder()
     {
@@ -62,7 +66,7 @@ public class func_collect
         string path = root_path + "/rgb/" + filename;
         ScreenCapture.CaptureScreenshot(path);
     }
-    public static void SaveOcrInfoToJson(string root_path, int stage_cnt)
+    public static void SaveOcrInfoToJson(GameObject model, string root_path, int stage_cnt)
     {
         string filename = "seg_" + stage_cnt.ToString() + ".png";
         string ocr_info = JsonCharacter.MakeBoundingBoxData(TaxBill.ocr_obj_list, filename);
@@ -70,19 +74,21 @@ public class func_collect
         string path = root_path + "/json/" + filename;
         System.IO.File.WriteAllText(path, ocr_info);
     }
-    public static void CreateModelFromTemplete(string model_path, string mat_path)
+    public static GameObject CreateModelFromTemplete(string model_path, string mat_path)
     {
         GameObject model_package = CreateObj("Model_Package", GameObject.Find("SceneManager").transform);
-        GameObject main_model = CreateObj("Main_Model", model_package.transform);
+        GameObject main_model = CreateObj("Model", model_package.transform);
         AddModelAttr(main_model, model_path, mat_path);
         List<Vector3> main_model_vertices = main_model.GetComponent<MeshFilter>().mesh.vertices.ToList();
 
         // 나중에 수정해야됨
         DataNeeds.inner_vertices = main_model_vertices;
-        DataNeeds.passport_obj = model_package.transform.Find("Main_Model").gameObject;
+        DataNeeds.passport_obj = model_package.transform.Find("Model").gameObject;
         DataNeeds.image_size = TaxBill.image_size;
         DataNeeds.passport_inner_object = GameObject.Find(TaxBill.templete_name);
         DataNeeds.mesh_tess = TaxBill.mesh_tess;
+
+        return main_model;
     }
     public static GameObject CreateObj(string obj_name, Transform transform)
     {
@@ -110,6 +116,7 @@ public class func_collect
 }
 public static class TaxBill
 {
+    public static GameObject model;
     public static string scene_name;
     public static Vector2 image_size;
     public static Vector2Int mesh_tess;
@@ -158,15 +165,15 @@ public class TaxBillScript : MonoBehaviour
         {
             if (stage_level == ORIGINAL_STAGE)
             {
-                func_collect.CreateModelFromTemplete(TaxBill.model_path, TaxBill.mat_path);
+                TaxBill.model = func_collect.CreateModelFromTemplete(TaxBill.model_path, TaxBill.mat_path);
 
                 Background.ChangeBackground(TaxBill.background);
-                CaptureTool.RandomizeCamera("Main_Model",true);
+                CaptureTool.RandomizeCamera("Model",true);
                 //Effect_Env.TempleteReflectLight_Point(TaxBill.ocr_obj_list);
                 //Effect_Env.CharShadowOrLight_On(TaxBill.ocr_obj_list);
                 Util.AntiAliasingFunc(true);
                 func_collect.CaptureScreenshot_Original(TaxBill.root_path, stage_cnt);
-                func_collect.SaveOcrInfoToJson(TaxBill.root_path, stage_cnt);
+                func_collect.SaveOcrInfoToJson(TaxBill.model, TaxBill.root_path, stage_cnt);
             }
         }
         frame_index++;

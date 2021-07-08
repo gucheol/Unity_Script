@@ -16,6 +16,7 @@ namespace JsonData_Script
         public class SegmentationInfoList
         {
             public List<SegmentationInfo> info_list = new List<SegmentationInfo>();
+            public float camera_angle;
         };
         [Serializable]
         public class SegmentationInfo
@@ -50,10 +51,8 @@ namespace JsonData_Script
             public string transcription;
             public List<Vector2> char_points;
         }
-        public static string MakeBoundingBoxData(List<string> feature_names, string filename)
+        public static SegmentationInfo CreateSeginfoAndAddObjName(SegmentationInfoList segmentation_info_list, List<string> feature_names, string filename)
         {
-            // json 개별 저장을 위해
-            SegmentationInfoList segmentation_info_list = new SegmentationInfoList();
             SegmentationInfo seg_info = new SegmentationInfo();
             segmentation_info_list.info_list.Add(seg_info);
 
@@ -65,7 +64,10 @@ namespace JsonData_Script
             }
             seg_info = segmentation_info_list.info_list[segmentation_info_list.info_list.Count - 1];
             seg_info.image_filename = filename;
-
+            return seg_info;
+        }
+        public static List<int> AddTextInfo(SegmentationInfo seg_info)
+        {
             List<int> removeIndex = new List<int>();
             for (int i = 0; i < seg_info.segment_list.Count; i++)
             {
@@ -81,21 +83,42 @@ namespace JsonData_Script
                 seg_info.segment_list[i] = segment;
             }
             removeIndex.Reverse();
+            return removeIndex;
+        }
+        public static SegmentationInfo RemoveOutofScreenIndex(SegmentationInfo seg_info, List<int> removeIndex)
+        {
             foreach (int index in removeIndex)
-            {
                 seg_info.segment_list.RemoveAt(index);
-            }
+            return seg_info;
+        }
+        public static string MakeBoundingBoxData(List<string> feature_names, string filename)
+        {
+            // json 개별 저장을 위해
+            SegmentationInfoList segmentation_info_list = new SegmentationInfoList();
+            SegmentationInfo seg_info = CreateSeginfoAndAddObjName(segmentation_info_list, feature_names, filename);
+            List<int> removeIndex = AddTextInfo(seg_info);
+            seg_info = RemoveOutofScreenIndex(seg_info, removeIndex);
             List<Segment> removed_empty_segments_list = DelEmptySegment(seg_info.segment_list);
             bool is_parts_exist = IsInPartsOfWord(removed_empty_segments_list);
             if (is_parts_exist)
                 seg_info.segment_list = CombinePartsOfWord(seg_info.segment_list);
             segmentation_info_list.info_list[segmentation_info_list.info_list.Count - 1] = seg_info;
+            segmentation_info_list.camera_angle = CalcRotateAngle(seg_info); //카메라 앵글값 저장, 모델각도는 (0,0,0)으로 가정
             string json_seg_info_list = UnityEngine.JsonUtility.ToJson(segmentation_info_list, true);
-
             return json_seg_info_list;
         }
-        public string image_filename;
-        public List<Segment> segment_list = new List<Segment>();
+        public static float CalcRotateAngle(SegmentationInfo seg_info)
+        {
+            GameObject model = DataNeeds.passport_obj;
+            Bounds bounds = model.GetComponent<MeshFilter>().mesh.bounds;
+            Vector3 model_tl = Camera.main.WorldToScreenPoint(new Vector3(0, 0, bounds.size.z));
+            Vector3 model_tr = Camera.main.WorldToScreenPoint(new Vector3(0, 0, 0));
+            float x_len = Mathf.Abs(model_tl.x - model_tr.x);
+            float y_len = Mathf.Abs(model_tl.y - model_tr.y);
+            float angle = (float)Math.Round(Mathf.Atan2(y_len, x_len) / Math.PI * 180, 3);
+
+            return angle;
+        }
         public static bool IsInPartsOfWord(List<Segment> segment_list)
         {
             bool is_exist = true;
@@ -108,7 +131,6 @@ namespace JsonData_Script
         {
             List<string> sep_word_list = GetSeperateWordList(segment_list);
             List<int> must_del_index = new List<int>();
-            //List<Segment> removed_empty_segments_list = DelEmptySegment(segment_list);
             List<Segment> combined_segments_list = CombinedSegment(sep_word_list, segment_list, must_del_index);
             List<Segment> deleted_segments_list = RemovePartsElement(must_del_index, segment_list);
             List<Segment> added_segments_list = AddCombinedElement(deleted_segments_list, combined_segments_list);
@@ -170,7 +192,6 @@ namespace JsonData_Script
         }
         public static (List<string>, List<Chars>, List<int>) CollectPartsOfTextAndChars(List<Segment> segment_list, string sep_word)
         {
-            //Regex regex = new Regex(sep_word);
             List<string> combined_text = new List<string>();
             List<Chars> combined_chars = new List<Chars>();
             List<int> del_indicies = new List<int>();
@@ -214,14 +235,17 @@ namespace JsonData_Script
         public static List<string> GetSeperateWordList(List<Segment> segment_list)
         {
             // 조각난 단어 종류별로 이름 뽑기
-            Regex regex = new Regex(@"_part1");
+            Regex regex = new Regex(@"_part*");
             List<string> sep_word_list = new List<string>();
             foreach (Segment word_piece in segment_list)
             {
                 string obj_name = word_piece.name;
                 if (!regex.IsMatch(obj_name))
                     continue;
-                sep_word_list.Add(obj_name.Split(new char[] { '_' })[0]);     
+
+                string text_group_name = obj_name.Split(new char[] { '_' })[0];
+                if (!sep_word_list.Contains(text_group_name))
+                    sep_word_list.Add(text_group_name);     
             }
             return sep_word_list;    
         }
