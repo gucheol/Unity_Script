@@ -103,11 +103,11 @@ namespace JsonData_Script
             if (is_parts_exist)
                 seg_info.segment_list = CombinePartsOfWord(seg_info.segment_list);
             segmentation_info_list.info_list[segmentation_info_list.info_list.Count - 1] = seg_info;
-            segmentation_info_list.camera_angle = CalcRotateAngle(seg_info); //카메라 앵글값 저장, 모델각도는 (0,0,0)으로 가정
+            segmentation_info_list.camera_angle = CalcRotateAngle(); //카메라 앵글값 저장, 모델각도는 (0,0,0)으로 가정
             string json_seg_info_list = UnityEngine.JsonUtility.ToJson(segmentation_info_list, true);
             return json_seg_info_list;
         }
-        public static float CalcRotateAngle(SegmentationInfo seg_info)
+        public static float CalcRotateAngle()
         {
             GameObject model = DataNeeds.passport_obj;
             Bounds bounds = model.GetComponent<MeshFilter>().mesh.bounds;

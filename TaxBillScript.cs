@@ -19,6 +19,7 @@ using CaptureTool_Script;
 using JsonData_Script;
 using TextProperty_Script;
 using CalcCoord_Script;
+using ReceiptTag_Script;
 
 public class func_collect
 {
@@ -66,10 +67,10 @@ public class func_collect
         string path = root_path + "/rgb/" + filename;
         ScreenCapture.CaptureScreenshot(path);
     }
-    public static void SaveOcrInfoToJson(GameObject model, string root_path, int stage_cnt)
+    public static void SaveOcrInfoToJson(List<string> ocr_obj_list, string root_path, int stage_cnt)
     {
         string filename = "seg_" + stage_cnt.ToString() + ".png";
-        string ocr_info = JsonCharacter.MakeBoundingBoxData(TaxBill.ocr_obj_list, filename);
+        string ocr_info = JsonCharacter.MakeBoundingBoxData(ocr_obj_list, filename);
         filename = String.Format("BoundingBox_{0}.json", stage_cnt);
         string path = root_path + "/json/" + filename;
         System.IO.File.WriteAllText(path, ocr_info);
@@ -84,7 +85,7 @@ public class func_collect
         // 나중에 수정해야됨
         DataNeeds.inner_vertices = main_model_vertices;
         DataNeeds.passport_obj = model_package.transform.Find("Model").gameObject;
-        DataNeeds.image_size = TaxBill.image_size;
+        DataNeeds.image_size = func_collect.TempleteImageSize();
         DataNeeds.passport_inner_object = GameObject.Find(TaxBill.templete_name);
         DataNeeds.mesh_tess = TaxBill.mesh_tess;
 
@@ -113,27 +114,86 @@ public class func_collect
         Texture image = GameObject.Find("Templete").GetComponent<MeshRenderer>().material.mainTexture;
         return new Vector2(image.width, image.height);
     }
+    public static void CreateDefaultModel()
+    {
+        TaxBill.model = func_collect.CreateModelFromTemplete(TaxBill.model_path, TaxBill.mat_path);
+        
+    }
+    public static void CreateTaggingModel()
+    {
+        Material templete_mat = GameObject.Find(TaxBill.templete_name).GetComponent<MeshRenderer>().material;
+        string file_path = LoadImageFromSystemFolder(templete_mat, TaxBill.tagging_folder);
+        TaxBill.tagging_file_path = file_path;
+        TaxBill.model = func_collect.CreateModelFromTemplete(TaxBill.model_path, TaxBill.mat_path);
+    }
+    public static Texture2D LoadImage(string img_path)
+    {
+        byte[] byteTexture = System.IO.File.ReadAllBytes(img_path);
+        Texture2D texture = new Texture2D(0, 0);
+        texture.LoadImage(byteTexture);
+        return texture;
+    }
+    public static string LoadImageFromSystemFolder(Material templete_mat, string img_folder_path)
+    {
+        List<string> paths = GetFilePathsInFolder(img_folder_path, ".jpg");
+        int index = UnityEngine.Random.Range(0, paths.Count);
+        Texture2D texture = LoadImage(paths[index]);
+        templete_mat.mainTexture = texture;
+        return paths[index];
+    }
+    public static List<string> GetFilePathsInFolder(string img_folder_path, string ext)
+    {
+        return Directory.GetFiles(img_folder_path, "*" + ext).ToList();
+    }
+    public static void RunTaggingModel(int stage_cnt, bool DebugCameraFix)
+    {
+        func_collect.CreateTaggingModel();
+        Background.ChangeBackground(TaxBill.background);
+        CaptureTool.RandomizeCamera(TaxBill.model.name, DebugCameraFix);
+        Util.AntiAliasingFunc(true);
+        func_collect.CaptureScreenshot_Original(TaxBill.root_path, stage_cnt);
+        SaveTransFormTextBounds(TaxBill.root_path, stage_cnt);
+    }
+    public static void RunDefaultModel(int stage_cnt, bool DebugCameraFix)
+    {
+        func_collect.CreateDefaultModel();
+        Background.ChangeBackground(TaxBill.background);
+        CaptureTool.RandomizeCamera(TaxBill.model.name, DebugCameraFix);
+        Util.AntiAliasingFunc(true);
+        func_collect.CaptureScreenshot_Original(TaxBill.root_path, stage_cnt);
+        TaxBill.ocr_obj_list = func_collect.GetOcrObjName(TaxBill.templete_name);
+        func_collect.SaveOcrInfoToJson(TaxBill.ocr_obj_list, TaxBill.root_path, stage_cnt);
+    }
+    public static void SaveTransFormTextBounds(string root_path, int stage_cnt)
+    {
+        string filename = "seg_" + stage_cnt.ToString() + ".png";
+        // json string을 반환해야 함. 
+        string ocr_info = ReceiptTagDataScript.LoadAndTransFormBoundingBoxData(filename);
+        filename = String.Format("BoundingBox_{0}.json", stage_cnt);
+        string path = root_path + "/json/" + filename;
+        System.IO.File.WriteAllText(path, ocr_info);
+    }
 }
 public static class TaxBill
 {
     public static GameObject model;
-    public static string scene_name;
-    public static Vector2 image_size;
-    public static Vector2Int mesh_tess;
-    public static string templete_name = "Templete";
-    public static string root_path;
+    public static string templete_name;
+    public static Texture[] background;
     public static Dictionary<string, Color> seg_obj_list = new Dictionary<string, Color>() { };
     public static List<string> ocr_obj_list = new List<string>() { };
-    public static Texture[] background;
-    public static List<Vector3> main_model_vertices;
+    public static Vector2Int mesh_tess;
+    public static string root_path;
     public static string model_path;
     public static string mat_path;
+    public static string tagging_folder;
+    public static string tagging_file_path;
 }
 public class TaxBillScript : MonoBehaviour
 {
+    public bool isTagData = false;
     public int iter = 10;
+    public bool DebugCameraFix = false;
 
-    GameObject model_package;
     int frame_index = 0;
     int frame_rate = 100;
     const int PREPARE_STAGE = 0;
@@ -141,14 +201,14 @@ public class TaxBillScript : MonoBehaviour
     const int SEGMENTATION_STAGE = 2;
     void Start()
     {
-        TaxBill.scene_name = SceneManager.GetActiveScene().name;
-        TaxBill.root_path = Application.persistentDataPath + "/" + TaxBill.scene_name;
+        TaxBill.templete_name = "Templete";
+        TaxBill.root_path = Application.persistentDataPath + "/" + SceneManager.GetActiveScene().name;
         TaxBill.background = Resources.LoadAll<Texture>("Background");
-        TaxBill.ocr_obj_list = func_collect.GetOcrObjName(TaxBill.templete_name); //new List<string>() { "FixedText11_part1", "FixedText11_part2", "FixedText11_part3" };
-        TaxBill.model_path = "Meshes/real_card"; //flat_card_32x48
-        TaxBill.mat_path = "Materials/Receipt/TaxbillRenderTextureMat"; //매터리얼 바꿔야됨
-        TaxBill.image_size = func_collect.TempleteImageSize();
-        TaxBill.mesh_tess = new Vector2Int(16, 24); //new Vector2Int(32, 48)
+        TaxBill.model_path = "Meshes/real_card";
+        TaxBill.mat_path = "Materials/Receipt/TaxbillRenderTextureMat";
+        TaxBill.mesh_tess = new Vector2Int(16, 24); //mesh info
+        // tagging
+        TaxBill.tagging_folder = "Z:\\Workspace\\data\\nullee_invoice\\태깅_아르바이트\\작업물_권현지\\완료\\세금계산서";
         func_collect.CreateSaveFolder();
     }
     void Update()
@@ -165,15 +225,10 @@ public class TaxBillScript : MonoBehaviour
         {
             if (stage_level == ORIGINAL_STAGE)
             {
-                TaxBill.model = func_collect.CreateModelFromTemplete(TaxBill.model_path, TaxBill.mat_path);
-
-                Background.ChangeBackground(TaxBill.background);
-                CaptureTool.RandomizeCamera("Model",true);
-                //Effect_Env.TempleteReflectLight_Point(TaxBill.ocr_obj_list);
-                //Effect_Env.CharShadowOrLight_On(TaxBill.ocr_obj_list);
-                Util.AntiAliasingFunc(true);
-                func_collect.CaptureScreenshot_Original(TaxBill.root_path, stage_cnt);
-                func_collect.SaveOcrInfoToJson(TaxBill.model, TaxBill.root_path, stage_cnt);
+                if (isTagData)
+                    func_collect.RunTaggingModel(stage_cnt, DebugCameraFix);
+                else
+                    func_collect.RunDefaultModel(stage_cnt, DebugCameraFix);
             }
         }
         frame_index++;
