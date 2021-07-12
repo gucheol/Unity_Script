@@ -6,7 +6,7 @@ namespace CaptureTool_Script
 {
     public static class CaptureTool
     {
-        public static void RandomizeCamera(string obj_name, bool debug_mode=false)
+        public static void RandomizeCamera(string obj_name, float camera_min_dist, float camera_max_dist, float camera_max_angle, bool debug_mode=false)
         {
             if (!debug_mode)
             {
@@ -16,10 +16,6 @@ namespace CaptureTool_Script
                 MeshRenderer inner_renderer = inner_obj.GetComponent<MeshRenderer>();
                 Bounds inner_bounds = inner_renderer.bounds;
                 Bounds target_bounds = new Bounds(inner_bounds.center, inner_bounds.size * 0.5f);
-
-                float camera_min_dist = 6.0f; //5.0f
-                float camera_max_dist = 15.0f;
-                float camera_max_angle = Mathf.PI * 9.8f; //6.0f
 
                 // (1) Target position
                 Vector3 target_position = RandomPointInBounds(target_bounds);

@@ -22,25 +22,28 @@ using CalcCoord_Script;
 
 public class GeneralPassportScript : MonoBehaviour
 {
-    Vector2 image_size;     // (width, height) 여권 이미지의 해상도
-    Vector2Int mesh_tess = new Vector2Int(16, 24);  // (x, z) 분할 갯수, Model Shape 생성 시 작성한 파라미터
-
-    string passportInnerSynth = "PassportInnerSynth";
-    //should Set
-    List<string> feature_ExtractName = new List<string>() { "Mr1", "Mr2", "PassportNo"};
-    List<string> feature_Image = new List<string>();
-    List<float[]> feature_rect_color = new List<float[]>();
-
-    string[] seg_list = new string[] { "PassportCoverSynth", "PassportInnerSynth", "PhotoSynth", "Mr" };
-    float[][] seg_color_list = new float[][] { PresetColor.black, PresetColor.object_background, PresetColor.person_image, PresetColor.mr };
-
     public int num_CaptureData = 5000;
+    public float CameraMinDistance = 6.0f;
+    public float CameraMaxDistance = 15.0f;
+    public float CameraMaxAngle = Mathf.PI * 9.8f;
     public float random_objectBackground_saturation_freq = 0.3f;
     public float random_hand_show_freq = 0.15f;
     public float random_subcard_show_freq = 0.3f;
     public float random_hologram_freq = 0.3f;
     public bool isFormattedRandomMR = true;
     public bool debug_mode = false;
+
+    Vector2 image_size;     // (width, height) 여권 이미지의 해상도
+    Vector2Int mesh_tess = new Vector2Int(16, 24);  // (x, z) 분할 갯수, Model Shape 생성 시 작성한 파라미터
+
+    string passportInnerSynth = "PassportInnerSynth";
+    //should Set
+    List<string> feature_ExtractName = new List<string>() { "Mr1", "Mr2", "PassportNo" };
+    List<string> feature_Image = new List<string>();
+    List<float[]> feature_rect_color = new List<float[]>();
+
+    string[] seg_list = new string[] { "PassportCoverSynth", "PassportInnerSynth", "PhotoSynth", "Mr" };
+    float[][] seg_color_list = new float[][] { PresetColor.black, PresetColor.object_background, PresetColor.person_image, PresetColor.mr };
     //
     List<string> feature_names = new List<string>();
     List<string> feature_rect = new List<string>();
@@ -123,7 +126,7 @@ public class GeneralPassportScript : MonoBehaviour
                 //Templete_Property.ChangeToLitShader();
                 Background.ChangeBackground(dataSet.background);
 
-                CaptureTool.RandomizeCamera("Inner",debug_mode);
+                CaptureTool.RandomizeCamera("Inner", CameraMinDistance, CameraMaxDistance, CameraMaxAngle, debug_mode); ;
                 SubCard.CreateSubObject(dataSet.cardImage, random_subcard_show_freq);
 
                 Hand.Random_Hand_Pose();

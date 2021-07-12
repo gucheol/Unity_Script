@@ -54,11 +54,28 @@ namespace ReceiptTag_Script
                 List<string> line_split = line.Split('\t').ToList();
                 string text = line_split[0];
                 if (tag_data.Keys.Contains(text))
-                    text = text + "dupl";
+                    //text = text + "dupl";
+                    text = duple_naming(tag_data.Keys.ToList(), text);
                 List<Vector2> bounds = ConvertStringCoordToVector2(line_split);
                 tag_data.Add(text, bounds);
             }
             return tag_data;
+        }
+        public static string duple_naming(List<string> string_list, string text)
+        {
+            string rename = text;
+            for(int i = 0; i<string_list.Count; i++)
+            {
+                if (string_list.Contains(text))
+                {
+                    rename = String.Format("{0}_{1}", rename, i);
+                    continue;
+                }
+                else
+                    break;
+            }
+            return rename;
+                
         }
         public static List<Vector2> ConvertStringCoordToVector2(List<string> line_split)
         {

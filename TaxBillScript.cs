@@ -11,7 +11,7 @@ using Segmentation_Script;
 using BoundingBox_Script;
 using Hand_Script;
 using ImageUtil_Script;
-using RandomText_Script;
+
 using LoadResource_Script;
 using Object_Script;
 using Effect_Script;
@@ -20,12 +20,34 @@ using JsonData_Script;
 using TextProperty_Script;
 using CalcCoord_Script;
 using ReceiptTag_Script;
+using TaxBillTextGen_Script;
 
+public struct FileDataSet
+{
+    public List<string> company_name;
+    public List<string> kor_name;
+    public List<string> address1;
+    public List<string> address2;
+    public List<string> address3;
+    public List<string> business_category;
+    public List<string> business_type;
+};
 public class func_collect
 {
+
     class CameraAngle
     {
         public Vector3 camera_angle;
+    }
+    public static void LoadResources()
+    {
+        TaxBill.dataset.address1 = LoadResouce.TextFile("Address1");
+        TaxBill.dataset.address2 = LoadResouce.TextFile("Address2");
+        TaxBill.dataset.address3 = LoadResouce.TextFile("Address3");
+        TaxBill.dataset.kor_name = LoadResouce.TextFile("korName");
+        TaxBill.dataset.company_name = LoadResouce.TextFile("Receipt/company_name");
+        TaxBill.dataset.business_category = LoadResouce.TextFile("Receipt/business_category");
+        TaxBill.dataset.business_type = LoadResouce.TextFile("Receipt/business_type");
     }
     //util
     public static void CreateSaveFolder()
@@ -145,25 +167,6 @@ public class func_collect
     {
         return Directory.GetFiles(img_folder_path, "*" + ext).ToList();
     }
-    public static void RunTaggingModel(int stage_cnt, bool DebugCameraFix)
-    {
-        func_collect.CreateTaggingModel();
-        Background.ChangeBackground(TaxBill.background);
-        CaptureTool.RandomizeCamera(TaxBill.model.name, DebugCameraFix);
-        Util.AntiAliasingFunc(true);
-        func_collect.CaptureScreenshot_Original(TaxBill.root_path, stage_cnt);
-        SaveTransFormTextBounds(TaxBill.root_path, stage_cnt);
-    }
-    public static void RunDefaultModel(int stage_cnt, bool DebugCameraFix)
-    {
-        func_collect.CreateDefaultModel();
-        Background.ChangeBackground(TaxBill.background);
-        CaptureTool.RandomizeCamera(TaxBill.model.name, DebugCameraFix);
-        Util.AntiAliasingFunc(true);
-        func_collect.CaptureScreenshot_Original(TaxBill.root_path, stage_cnt);
-        TaxBill.ocr_obj_list = func_collect.GetOcrObjName(TaxBill.templete_name);
-        func_collect.SaveOcrInfoToJson(TaxBill.ocr_obj_list, TaxBill.root_path, stage_cnt);
-    }
     public static void SaveTransFormTextBounds(string root_path, int stage_cnt)
     {
         string filename = "seg_" + stage_cnt.ToString() + ".png";
@@ -172,6 +175,69 @@ public class func_collect
         filename = String.Format("BoundingBox_{0}.json", stage_cnt);
         string path = root_path + "/json/" + filename;
         System.IO.File.WriteAllText(path, ocr_info);
+    }
+    public static void TurnOffMeshRenderer(string templete_obj_name)
+    {
+        GameObject templete = GameObject.Find(templete_obj_name);
+        List<string> text_list = GetChildNameList(templete);
+        for(int i=0; i < text_list.Count; i++)
+        {
+            GameObject tmp_obj = GameObject.Find(text_list[i]);
+            tmp_obj.GetComponent<MeshRenderer>().enabled = false;
+        }
+    }
+    public static void TaxBill_TextChange()
+    {
+        RandomTextTaxBill.Gen_BookID("책번호-권-내용");
+        RandomTextTaxBill.Gen_BookID("책번호-호-내용");
+        RandomTextTaxBill.Gen_SN("일련번호-내용");
+        RandomTextTaxBill.Gen_CompanyID("공급자-등록번호-내용");
+        RandomTextTaxBill.Gen_CompanyName("공급자-상호-내용", TaxBill.dataset.company_name);
+        RandomTextTaxBill.Gen_PersonName("공급자-성명-내용", TaxBill.dataset.kor_name);
+        RandomTextTaxBill.Gen_CompanyAddress("공급자-사업장주소-내용", TaxBill.dataset.address1, TaxBill.dataset.address2, TaxBill.dataset.address3);
+        RandomTextTaxBill.Gen_Category("공급자-업태-내용", TaxBill.dataset.business_category);
+        RandomTextTaxBill.Gen_type("공급자-종목-내용", TaxBill.dataset.business_type);
+        RandomTextTaxBill.Gen_CompanyID("공급받는자-등록번호-내용");
+        RandomTextTaxBill.Gen_CompanyName("공급받는자-상호-내용", TaxBill.dataset.company_name);
+        RandomTextTaxBill.Gen_PersonName("공급받는자-성명-내용", TaxBill.dataset.kor_name);
+        RandomTextTaxBill.Gen_CompanyAddress("공급받는자-사업장주소-내용", TaxBill.dataset.address1, TaxBill.dataset.address2, TaxBill.dataset.address3);
+        RandomTextTaxBill.Gen_Category("공급받는자-업태-내용", TaxBill.dataset.business_category);
+        RandomTextTaxBill.Gen_type("공급받는자-종목-내용", TaxBill.dataset.business_type);
+        RandomTextTaxBill.Gen_Date("작성-년월일-내용_part1", "작성-년월일-내용_part2", "작성-년월일-내용_part3");
+        RandomTextTaxBill.Gen_SupplyPrice("공급가액-금액-공란수-내용", "공급가액-금액-내용", "세액-내용", "합계금액-내용");
+
+    }
+    public static void RunTaggingModel(int stage_cnt, bool DebugCameraFix)
+    {
+        // 카메라 세팅 나중에 분리해야함
+        float CameraMinDistance = 11.0f;
+        float CameraMaxDistance = 13.0f;
+        float CameraMaxAngle = Mathf.PI * 2f;
+
+        func_collect.CreateTaggingModel();
+        Background.ChangeBackground(TaxBill.background);
+        CaptureTool.RandomizeCamera(TaxBill.model.name, CameraMinDistance, CameraMaxDistance, CameraMaxAngle, DebugCameraFix);
+        Util.AntiAliasingFunc(true);
+        func_collect.CaptureScreenshot_Original(TaxBill.root_path, stage_cnt);
+        SaveTransFormTextBounds(TaxBill.root_path, stage_cnt);
+    }
+    public static void RunDefaultModel(int stage_cnt, bool DebugCameraFix)
+    {
+        //파란색 텍스트 rgb: (9,104,214)
+        // 카메라 세팅 나중에 분리해야함
+        float CameraMinDistance = 6.0f;
+        float CameraMaxDistance = 15.0f;
+        float CameraMaxAngle = Mathf.PI * 6.36f;
+
+        func_collect.CreateDefaultModel();
+        Background.ChangeBackground(TaxBill.background);
+        CaptureTool.RandomizeCamera(TaxBill.model.name, CameraMinDistance, CameraMaxDistance, CameraMaxAngle, DebugCameraFix);
+        TaxBill_TextChange();
+
+        Util.AntiAliasingFunc(true);
+        func_collect.CaptureScreenshot_Original(TaxBill.root_path, stage_cnt);
+        TaxBill.ocr_obj_list = func_collect.GetOcrObjName(TaxBill.templete_name);
+        func_collect.SaveOcrInfoToJson(TaxBill.ocr_obj_list, TaxBill.root_path, stage_cnt);
     }
 }
 public static class TaxBill
@@ -187,29 +253,33 @@ public static class TaxBill
     public static string mat_path;
     public static string tagging_folder;
     public static string tagging_file_path;
+    public static FileDataSet dataset;
 }
 public class TaxBillScript : MonoBehaviour
 {
     public bool isTagData = false;
     public int iter = 10;
     public bool DebugCameraFix = false;
-
     int frame_index = 0;
-    int frame_rate = 100;
+    int frame_rate = 3;
     const int PREPARE_STAGE = 0;
     const int ORIGINAL_STAGE = 1;
     const int SEGMENTATION_STAGE = 2;
+
     void Start()
     {
         TaxBill.templete_name = "Templete";
         TaxBill.root_path = Application.persistentDataPath + "/" + SceneManager.GetActiveScene().name;
         TaxBill.background = Resources.LoadAll<Texture>("Background");
-        TaxBill.model_path = "Meshes/real_card";
+        TaxBill.model_path = "Meshes/Paper/paper0002";
         TaxBill.mat_path = "Materials/Receipt/TaxbillRenderTextureMat";
         TaxBill.mesh_tess = new Vector2Int(16, 24); //mesh info
         // tagging
         TaxBill.tagging_folder = "Z:\\Workspace\\data\\nullee_invoice\\태깅_아르바이트\\작업물_권현지\\완료\\세금계산서";
         func_collect.CreateSaveFolder();
+        func_collect.LoadResources();
+        if (isTagData)
+            func_collect.TurnOffMeshRenderer(TaxBill.templete_name);
     }
     void Update()
     {

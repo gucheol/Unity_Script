@@ -44,6 +44,10 @@ public class GeneralCardScript : MonoBehaviour
     public float random_subcard_show_freq = 0.3f;
     public float random_hologram_freq = 0.3f;
     public bool debug_mode = false;
+    public float CameraMinDistance = 6.0f;
+    public float CameraMaxDistance = 15.0f;
+    public float CameraMaxAngle = Mathf.PI * 9.8f;
+
     int frame_rate = 3;
     //
     List<string> feature_names = new List<string>();
@@ -132,7 +136,7 @@ public class GeneralCardScript : MonoBehaviour
                 RandomizePassport();
                 Background.ChangeBackground(dataSet.background);
 
-                CaptureTool.RandomizeCamera("Inner", debug_mode);
+                CaptureTool.RandomizeCamera("Inner", CameraMinDistance, CameraMaxDistance, CameraMaxAngle, debug_mode);
                 SubCard.CreateSubObject(dataSet.cardImage, random_subcard_show_freq);
 
                 Hand.Random_Hand_Pose();
