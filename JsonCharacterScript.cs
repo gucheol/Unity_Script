@@ -77,8 +77,15 @@ namespace JsonData_Script
                 if (text_info.Item1.Count == 0 || text_info.Item1[0].Count == 0)
                     continue;
 
-                List<Words> words_list;
-                words_list = ExtractWordInfo(text_info.Item1, tmp_obj_name);
+                List<Words> words_list = new List<Words>();
+                try
+                {
+                    words_list = ExtractWordInfo(text_info.Item1, tmp_obj_name);
+                }
+                catch
+                {
+                    int a = 3;
+                }
                 segment.words = words_list;
                 seg_info.segment_list[i] = segment;
             }
@@ -96,7 +103,8 @@ namespace JsonData_Script
             // json 개별 저장을 위해
             SegmentationInfoList segmentation_info_list = new SegmentationInfoList();
             SegmentationInfo seg_info = CreateSeginfoAndAddObjName(segmentation_info_list, feature_names, filename);
-            List<int> removeIndex = AddTextInfo(seg_info);
+            AddTextInfo(seg_info);
+            List<int> removeIndex = new List<int>();
             seg_info = RemoveOutofScreenIndex(seg_info, removeIndex);
             List<Segment> removed_empty_segments_list = DelEmptySegment(seg_info.segment_list);
             bool is_parts_exist = IsInPartsOfWord(removed_empty_segments_list);
@@ -217,12 +225,29 @@ namespace JsonData_Script
         }
         public static List<Vector2> MakeCombinedWordcoord(List<Chars> combined_char_info)
         {
-            Vector2 left_top = combined_char_info[0].char_points[0];
-            Vector2 left_bottom = combined_char_info[0].char_points[3];
-            Vector2 right_top = combined_char_info[combined_char_info.Count - 1].char_points[1];
-            Vector2 right_bottom = combined_char_info[combined_char_info.Count - 1].char_points[2];
-            List<Vector2> combined_word_points = new List<Vector2>() { left_top, right_top, right_bottom, left_bottom };
-            return combined_word_points;
+            Vector2 left_top;
+            Vector2 left_bottom;
+            Vector2 right_top;
+            Vector2 right_bottom;
+            // 가로박스 세로박스 좌표 판단
+            if (combined_char_info.Count > 1)
+            {
+                float horizon_distance = Vector2.Distance(combined_char_info[0].char_points[1], combined_char_info[1].char_points[0]);
+                float vertical_distance = Vector2.Distance(combined_char_info[0].char_points[3], combined_char_info[1].char_points[0]);
+                if (horizon_distance > vertical_distance)
+                {
+                    left_top = combined_char_info[0].char_points[0];
+                    left_bottom = combined_char_info[combined_char_info.Count - 1].char_points[3];
+                    right_top = combined_char_info[0].char_points[1];
+                    right_bottom = combined_char_info[combined_char_info.Count - 1].char_points[2];
+                    return new List<Vector2>() { left_top, right_top, right_bottom, left_bottom };
+                }
+            }
+            left_top = combined_char_info[0].char_points[0];
+            left_bottom = combined_char_info[0].char_points[3];
+            right_top = combined_char_info[combined_char_info.Count - 1].char_points[1];
+            right_bottom = combined_char_info[combined_char_info.Count - 1].char_points[2];
+            return new List<Vector2>() { left_top, right_top, right_bottom, left_bottom };
         }
         public static Words MakeCombinedWords(List<Chars> combined_char_info, string combined_text)
         {

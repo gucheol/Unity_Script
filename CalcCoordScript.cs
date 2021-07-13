@@ -216,7 +216,7 @@ namespace CalcCoord_Script
                 List<string> oneLine_worlds = text.Split(' ').ToList();
                 worlds.AddRange(oneLine_worlds);
                 // 글자 좌표 정보 만들기
-                List<List<Vector3>> word_coord = MakeWordBoundingBoxData(word_firstIndicies, word_lastIndicies, chars_delSpace, chars_coord, char_info);
+                List<List<Vector3>> word_coord = MakeWordBoundingBoxData(word_firstIndicies, word_lastIndicies, chars_delSpace, charCoord_inWord, char_info);
                 words_coord_list.AddRange(word_coord);
             }
 
@@ -317,11 +317,11 @@ namespace CalcCoord_Script
             }
             return chars_delSpace;
         }
-        public static List<List<Vector3>> MakeWordBoundingBoxData(List<int> world_firstIndicies, List<int> world_lastIndicies, List<List<char>> chars_delSpace_list, List<List<Vector3>> char_coord, List<TMP_CharacterInfo> char_info)
+        public static List<List<Vector3>> MakeWordBoundingBoxData(List<int> word_firstIndicies, List<int> world_lastIndicies, List<List<char>> chars_delSpace_list, List<List<Vector3>> char_coord, List<TMP_CharacterInfo> char_info)
         {
             int char_count = 0;
             List<List<Vector3>> word_coord = new List<List<Vector3>>();
-            for (int i = 0; i < world_firstIndicies.Count; i++)
+            for (int i = 0; i < word_firstIndicies.Count; i++)
             {
                 float max = 0;
                 float min = 100000;
@@ -336,7 +336,7 @@ namespace CalcCoord_Script
                     char_count++;
                 }
 
-                var first_char = char_info[world_firstIndicies[i]];
+                var first_char = char_info[word_firstIndicies[i]];
                 var last_char = char_info[world_lastIndicies[i]];
 
                 Vector3 topLeft = new Vector3(first_char.topLeft.x, max, first_char.topLeft.z);

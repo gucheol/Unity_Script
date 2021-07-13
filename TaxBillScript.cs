@@ -31,6 +31,7 @@ public struct FileDataSet
     public List<string> address3;
     public List<string> business_category;
     public List<string> business_type;
+    public List<string> goods_name;
 };
 public class func_collect
 {
@@ -48,6 +49,7 @@ public class func_collect
         TaxBill.dataset.company_name = LoadResouce.TextFile("Receipt/company_name");
         TaxBill.dataset.business_category = LoadResouce.TextFile("Receipt/business_category");
         TaxBill.dataset.business_type = LoadResouce.TextFile("Receipt/business_type");
+        TaxBill.dataset.goods_name = LoadResouce.TextFile("Receipt/goods_name");
     }
     //util
     public static void CreateSaveFolder()
@@ -97,10 +99,11 @@ public class func_collect
         string path = root_path + "/json/" + filename;
         System.IO.File.WriteAllText(path, ocr_info);
     }
-    public static GameObject CreateModelFromTemplete(string model_path, string mat_path)
+    public static GameObject CreateModelFromTemplete(string model_folder_path, string mat_path)
     {
         GameObject model_package = CreateObj("Model_Package", GameObject.Find("SceneManager").transform);
         GameObject main_model = CreateObj("Model", model_package.transform);
+        string model_path = SelectOneModelPath(model_folder_path);
         AddModelAttr(main_model, model_path, mat_path);
         List<Vector3> main_model_vertices = main_model.GetComponent<MeshFilter>().mesh.vertices.ToList();
 
@@ -112,6 +115,24 @@ public class func_collect
         DataNeeds.mesh_tess = TaxBill.mesh_tess;
 
         return main_model;
+    }
+    public static string SelectOneModelPath(string folder_path)
+    {
+        List<string> model_paths = new List<string>();
+        string full_folder_path = Application.dataPath + "/Resources/" + folder_path;
+        List<string> file_paths = Directory.GetFiles(full_folder_path).ToList();
+        foreach (string path in file_paths)
+        {
+            string ext = Path.GetExtension(path);
+            if (ext == ".obj" || ext == ".fbx")
+            {
+                string filename = Path.GetFileNameWithoutExtension(path);
+                model_paths.Add(filename);
+            }
+        }
+        int index = UnityEngine.Random.Range(0, model_paths.Count);
+        string model_path = folder_path + "/" + model_paths[index];
+        return model_path;
     }
     public static GameObject CreateObj(string obj_name, Transform transform)
     {
@@ -128,7 +149,7 @@ public class func_collect
     {
         MeshFilter main_model_mf = model_obj.AddComponent<MeshFilter>();
         MeshRenderer main_model_mr = model_obj.AddComponent<MeshRenderer>();
-        main_model_mf.sharedMesh = Resources.Load<Mesh>(model_path);
+        main_model_mf.sharedMesh = Resources.Load<Mesh>(model_path); //model_path //"Meshes/real_card"
         main_model_mr.material = Resources.Load<Material>(mat_path);
     }
     public static Vector2 TempleteImageSize()
@@ -205,14 +226,15 @@ public class func_collect
         RandomTextTaxBill.Gen_type("공급받는자-종목-내용", TaxBill.dataset.business_type);
         RandomTextTaxBill.Gen_Date("작성-년월일-내용_part1", "작성-년월일-내용_part2", "작성-년월일-내용_part3");
         RandomTextTaxBill.Gen_SupplyPrice("공급가액-금액-공란수-내용", "공급가액-금액-내용", "세액-내용", "합계금액-내용");
+        RandomTextTaxBill.Gen_ListContents(TaxBill.dataset.goods_name);
 
     }
     public static void RunTaggingModel(int stage_cnt, bool DebugCameraFix)
     {
         // 카메라 세팅 나중에 분리해야함
-        float CameraMinDistance = 11.0f;
-        float CameraMaxDistance = 13.0f;
-        float CameraMaxAngle = Mathf.PI * 2f;
+        float CameraMinDistance = 8.9f;
+        float CameraMaxDistance = 9.0f;
+        float CameraMaxAngle = Mathf.PI;
 
         func_collect.CreateTaggingModel();
         Background.ChangeBackground(TaxBill.background);
@@ -226,7 +248,7 @@ public class func_collect
         //파란색 텍스트 rgb: (9,104,214)
         // 카메라 세팅 나중에 분리해야함
         float CameraMinDistance = 6.0f;
-        float CameraMaxDistance = 15.0f;
+        float CameraMaxDistance = 13.0f;
         float CameraMaxAngle = Mathf.PI * 6.36f;
 
         func_collect.CreateDefaultModel();
@@ -237,7 +259,7 @@ public class func_collect
         Util.AntiAliasingFunc(true);
         func_collect.CaptureScreenshot_Original(TaxBill.root_path, stage_cnt);
         TaxBill.ocr_obj_list = func_collect.GetOcrObjName(TaxBill.templete_name);
-        func_collect.SaveOcrInfoToJson(TaxBill.ocr_obj_list, TaxBill.root_path, stage_cnt);
+        //func_collect.SaveOcrInfoToJson(TaxBill.ocr_obj_list, TaxBill.root_path, stage_cnt);
     }
 }
 public static class TaxBill
@@ -270,8 +292,8 @@ public class TaxBillScript : MonoBehaviour
     {
         TaxBill.templete_name = "Templete";
         TaxBill.root_path = Application.persistentDataPath + "/" + SceneManager.GetActiveScene().name;
-        TaxBill.background = Resources.LoadAll<Texture>("Background");
-        TaxBill.model_path = "Meshes/Paper/paper0002";
+        TaxBill.background = Resources.LoadAll<Texture>("Background/Debug"); //"Background"
+        TaxBill.model_path = "Meshes/Paper";
         TaxBill.mat_path = "Materials/Receipt/TaxbillRenderTextureMat";
         TaxBill.mesh_tess = new Vector2Int(16, 24); //mesh info
         // tagging
@@ -300,6 +322,9 @@ public class TaxBillScript : MonoBehaviour
                 else
                     func_collect.RunDefaultModel(stage_cnt, DebugCameraFix);
             }
+            else if (stage_level == SEGMENTATION_STAGE)
+                if (!isTagData)
+                    func_collect.SaveOcrInfoToJson(TaxBill.ocr_obj_list, TaxBill.root_path, stage_cnt);
         }
         frame_index++;
     }

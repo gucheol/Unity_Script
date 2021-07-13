@@ -200,6 +200,8 @@ namespace BoundingBox_Script
                 var line_char = charInfosList.GetRange(firstIndex, line_length);
                 charinfo_splitLine.Add(line_char);
             }
+            if (GameObject.Find("공급자-업태-내용").GetComponent<TMP_Text>().textInfo == textInfo)
+                lineInfo_list = null;
             return charinfo_splitLine;
         }
         public static (float, float) Calc_CharacterHeight_MinMax(List<TMP_CharacterInfo> charInfo_oneLine)
