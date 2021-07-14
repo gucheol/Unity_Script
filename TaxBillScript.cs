@@ -35,11 +35,6 @@ public struct FileDataSet
 };
 public class func_collect
 {
-
-    class CameraAngle
-    {
-        public Vector3 camera_angle;
-    }
     public static void LoadResources()
     {
         TaxBill.dataset.address1 = LoadResouce.TextFile("Address1");
@@ -297,7 +292,7 @@ public class TaxBillScript : MonoBehaviour
         TaxBill.mat_path = "Materials/Receipt/TaxbillRenderTextureMat";
         TaxBill.mesh_tess = new Vector2Int(16, 24); //mesh info
         // tagging
-        TaxBill.tagging_folder = "Z:\\Workspace\\data\\nullee_invoice\\태깅_아르바이트\\작업물_권현지\\완료\\세금계산서";
+        TaxBill.tagging_folder = "C:/Workspace/Unity/AppTestSynthID/Assets/Resources/Textures/TempleteTexture/ReceiptTexture/Demo"; // Z:\\Workspace\\data\\nullee_invoice\\태깅_아르바이트\\작업물_권현지\\완료\\세금계산서
         func_collect.CreateSaveFolder();
         func_collect.LoadResources();
         if (isTagData)

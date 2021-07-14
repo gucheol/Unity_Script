@@ -66,7 +66,7 @@ namespace JsonData_Script
             seg_info.image_filename = filename;
             return seg_info;
         }
-        public static List<int> AddTextInfo(SegmentationInfo seg_info)
+        public static List<int> AddTextInfo(SegmentationInfo seg_info, float img_angle)
         {
             List<int> removeIndex = new List<int>();
             for (int i = 0; i < seg_info.segment_list.Count; i++)
@@ -78,14 +78,7 @@ namespace JsonData_Script
                     continue;
 
                 List<Words> words_list = new List<Words>();
-                try
-                {
-                    words_list = ExtractWordInfo(text_info.Item1, tmp_obj_name);
-                }
-                catch
-                {
-                    int a = 3;
-                }
+                words_list = ExtractWordInfo(text_info.Item1, tmp_obj_name, img_angle);
                 segment.words = words_list;
                 seg_info.segment_list[i] = segment;
             }
@@ -102,16 +95,16 @@ namespace JsonData_Script
         {
             // json 개별 저장을 위해
             SegmentationInfoList segmentation_info_list = new SegmentationInfoList();
+            segmentation_info_list.camera_angle = CalcRotateAngle(); //카메라 앵글값 저장, 모델각도는 (0,0,0)으로 가정
             SegmentationInfo seg_info = CreateSeginfoAndAddObjName(segmentation_info_list, feature_names, filename);
-            AddTextInfo(seg_info);
+            AddTextInfo(seg_info, segmentation_info_list.camera_angle);
             List<int> removeIndex = new List<int>();
             seg_info = RemoveOutofScreenIndex(seg_info, removeIndex);
             List<Segment> removed_empty_segments_list = DelEmptySegment(seg_info.segment_list);
             bool is_parts_exist = IsInPartsOfWord(removed_empty_segments_list);
             if (is_parts_exist)
-                seg_info.segment_list = CombinePartsOfWord(seg_info.segment_list);
+                seg_info.segment_list = CombinePartsOfWord(seg_info.segment_list, segmentation_info_list.camera_angle);
             segmentation_info_list.info_list[segmentation_info_list.info_list.Count - 1] = seg_info;
-            segmentation_info_list.camera_angle = CalcRotateAngle(); //카메라 앵글값 저장, 모델각도는 (0,0,0)으로 가정
             string json_seg_info_list = UnityEngine.JsonUtility.ToJson(segmentation_info_list, true);
             return json_seg_info_list;
         }
@@ -135,11 +128,11 @@ namespace JsonData_Script
                 is_exist = false;
             return is_exist;
         }
-        public static List<Segment> CombinePartsOfWord(List<Segment> segment_list)
+        public static List<Segment> CombinePartsOfWord(List<Segment> segment_list, float img_angle)
         {
             List<string> sep_word_list = GetSeperateWordList(segment_list);
             List<int> must_del_index = new List<int>();
-            List<Segment> combined_segments_list = CombinedSegment(sep_word_list, segment_list, must_del_index);
+            List<Segment> combined_segments_list = CombinedSegment(sep_word_list, segment_list, must_del_index, img_angle);
             List<Segment> deleted_segments_list = RemovePartsElement(must_del_index, segment_list);
             List<Segment> added_segments_list = AddCombinedElement(deleted_segments_list, combined_segments_list);
 
@@ -175,7 +168,7 @@ namespace JsonData_Script
                 segment_list.RemoveAt(del_index);
             return segment_list;
         }
-        public static List<Segment> CombinedSegment(List<string> sep_word_list, List<Segment> segment_list, List<int> must_del_index)
+        public static List<Segment> CombinedSegment(List<string> sep_word_list, List<Segment> segment_list, List<int> must_del_index, float img_angle)
         {
             List<Segment> combined_segments_list = new List<Segment>();
             foreach (string sep_word in sep_word_list)
@@ -188,7 +181,7 @@ namespace JsonData_Script
 
                 Words combined_words = new Words();
                 combined_words.transcription = string.Join("", combined_text);
-                combined_words.word_points = MakeCombinedWordcoord(combined_chars);
+                combined_words.word_points = CalcDistortionWordCoord(combined_chars, img_angle);//MakeCombinedWordcoord(combined_chars);
                 combined_words.chars = combined_chars;
 
                 Segment combined_segment = new Segment();
@@ -223,7 +216,7 @@ namespace JsonData_Script
             }
             return (combined_text, combined_chars, del_indicies);
         }
-        public static List<Vector2> MakeCombinedWordcoord(List<Chars> combined_char_info)
+        public static List<Vector2> MakeCombinedWordcoord(List<Chars> combined_char_info, float img_rot_angle)
         {
             Vector2 left_top;
             Vector2 left_bottom;
@@ -249,11 +242,71 @@ namespace JsonData_Script
             right_bottom = combined_char_info[combined_char_info.Count - 1].char_points[2];
             return new List<Vector2>() { left_top, right_top, right_bottom, left_bottom };
         }
-        public static Words MakeCombinedWords(List<Chars> combined_char_info, string combined_text)
+        public static List<Vector2> CalcDistortionWordCoord(List<Chars> combined_char_info, float img_rot_angle)
+        {
+            List<Vector2> forward_all_char_coords = CalcBeforeRotateCoordAllChar(combined_char_info, img_rot_angle);
+            List<Vector2> forward_word_coord = CalcForwardWordCoord(forward_all_char_coords);
+            List<Vector2> word_coord = CalcRotateCoord(forward_word_coord, img_rot_angle);
+            return word_coord;
+        }
+        public static List<Vector2> CalcRotateCoord(List<Vector2> forward_word_coord, float img_rot_angle)
+        {
+            List<Vector2> word_coord = new List<Vector2>();
+            foreach (Vector2 coord in forward_word_coord)
+            {
+                // 좌표 회전변환
+                float forward_x = coord.x * Mathf.Cos(img_rot_angle) + coord.y * Mathf.Sin(img_rot_angle);
+                float forward_y = coord.y * Mathf.Cos(img_rot_angle) - coord.x * Mathf.Sin(img_rot_angle);
+                Vector2 forward_vertor = new Vector2(forward_x, forward_y);
+                word_coord.Add(forward_vertor);
+            }
+            return word_coord;
+        }
+        public static List<Vector2> CalcForwardWordCoord(List<Vector2> forward_coord)
+        {
+            float min_x = 100000;
+            float min_y = 100000;
+            float max_x = 0;
+            float max_y = 0;
+            foreach (Vector2 coord in forward_coord)
+            {
+                if (min_x > coord.x)
+                    min_x = coord.x;
+                if (min_y > coord.y)
+                    min_y = coord.y;
+                if (max_x < coord.x)
+                    max_x = coord.x;
+                if (max_y < coord.y)
+                    max_y = coord.y;
+            }
+            Vector2 top_left = new Vector2(min_x, min_y);
+            Vector2 top_right = new Vector2(max_x, min_y);
+            Vector2 bot_right = new Vector2(max_x, max_y);
+            Vector2 bot_left = new Vector2(min_x, max_y);
+            return new List<Vector2>() { top_left, top_right, bot_right, bot_left };
+        }
+        public static List<Vector2> CalcBeforeRotateCoordAllChar(List<Chars> combined_char_info, float img_rot_angle)
+        {
+            List<Vector2> forward_coord = new List<Vector2>();
+            foreach (Chars char_info in combined_char_info)
+            {
+                List<Vector2> char_coord = char_info.char_points;
+                foreach (Vector2 coord in char_coord)
+                {
+                    // 좌표 회전변환
+                    float forward_x = coord.x * Mathf.Cos(img_rot_angle) + coord.y * Mathf.Sin(img_rot_angle);
+                    float forward_y = coord.y * Mathf.Cos(img_rot_angle) - coord.x * Mathf.Sin(img_rot_angle);
+                    Vector2 forward_vertor = new Vector2(forward_x, forward_y);
+                    forward_coord.Add(forward_vertor);
+                }
+            }
+            return forward_coord;
+        }
+        public static Words MakeCombinedWords(List<Chars> combined_char_info, string combined_text, float img_angle)
         {
             Words combined_words = new Words();
             combined_words.transcription = combined_text;
-            combined_words.word_points = MakeCombinedWordcoord(combined_char_info); ;
+            combined_words.word_points = CalcDistortionWordCoord(combined_char_info, img_angle);//MakeCombinedWordcoord(combined_char_info);
             combined_words.chars = combined_char_info;
             return combined_words;
         }
@@ -289,7 +342,7 @@ namespace JsonData_Script
             }
             return chars_list;
         }
-        public static List<Words> ExtractWordInfo(List<List<TMPro.TMP_CharacterInfo>> word_list, string tmp_obj_name)
+        public static List<Words> ExtractWordInfo(List<List<TMPro.TMP_CharacterInfo>> word_list, string tmp_obj_name, float img_angle)
         {
             List<Words> words_list = new List<Words>();
             var word_info = CalcCoord.ExtractWorldAndCoord(word_list);
@@ -307,7 +360,7 @@ namespace JsonData_Script
                 List<Chars> chars_list = ExtractCharInfoFromWord(char_text_list[j], tmp_obj_name, char_boundingbox_list, char_count);
 
                 words.transcription = word_info.Item2[j];
-                words.word_points = word_points.ToList();
+                words.word_points = CalcDistortionWordCoord(chars_list, img_angle);//word_points.ToList();
                 words.chars = chars_list;
                 words_list.Add(words);
 
