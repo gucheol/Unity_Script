@@ -113,9 +113,8 @@ namespace ReceiptTag_Script
             seg_info.image_filename = filename;
             return seg_info;
         }
-        public static string LoadAndTransFormBoundingBoxData(string filename)
+        public static string LoadAndTransFormBoundingBoxData(string txt_path, string filename)
         {
-            string txt_path = TaxBill.tagging_file_path.Replace(".jpg", ".txt");
             Dictionary<string, List<Vector2>> tag_data = LoadTaggingTextFile(txt_path); //coord in templete
 
             SegmentationInfoList segmentation_info_list = new SegmentationInfoList();
@@ -144,7 +143,6 @@ namespace ReceiptTag_Script
             {
                 List<Vector2> value = tag_data[tag_key];
                 List<Vector2> word_coord = CalcImageCoords(value);
-
 
                 Words words = new Words();
                 words.transcription = tag_key;

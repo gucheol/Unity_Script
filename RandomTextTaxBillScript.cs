@@ -15,7 +15,7 @@ namespace TaxBillTextGen_Script
         }
         public static void Gen_SN(string obj_name)
         {
-            int num = UnityEngine.Random.Range(10000, 100000);
+            int num = UnityEngine.Random.Range(100000, 1000000);
             string text = string.Format("{0}", num);
             GameObject.Find(obj_name).GetComponent<TMP_Text>().SetText(text);
         }
@@ -99,6 +99,23 @@ namespace TaxBillTextGen_Script
             string total_text = string.Format("{0:#,0},000", total);
             GameObject.Find(total_obj_name).GetComponent<TMP_Text>().SetText(total_text);
         }
+        public static void Gen_SupplyPriceNoTax(string black_obj_name, string price_obj_name, string total_obj_name)
+        {
+            // 공급가액
+            int probability_assistant = UnityEngine.Random.Range(1, 5);
+            int price = UnityEngine.Random.Range(0, 1000000 / (int)(Mathf.Pow(10, probability_assistant)));
+            string price_text = string.Format("{0}0000", price);
+            GameObject.Find(price_obj_name).GetComponent<TMP_Text>().SetText(price_text);
+
+            // 공란수
+            int blank_num = string.Format("{0}", 1000000000).Length - string.Format("{0}", price).Length - 3;
+            string blank_text = string.Format("{0}", blank_num);
+            GameObject.Find(black_obj_name).GetComponent<TMP_Text>().SetText(blank_text);
+
+            int total = price * 10;
+            string total_text = string.Format("{0:#,0},000", total);
+            GameObject.Find(total_obj_name).GetComponent<TMP_Text>().SetText(total_text);
+        }
         public static void Gen_ListDate(string month_obj_name, string day_obj_name)
         {
             int month = UnityEngine.Random.Range(0, 13);
@@ -142,6 +159,17 @@ namespace TaxBillTextGen_Script
             GameObject.Find(tax_obj_name).GetComponent<TMP_Text>().SetText(tax_text);
             GameObject.Find(total_obj_name).GetComponent<TMP_Text>().SetText(total_text);
         }
+        public static void Gen_ListPriceNoTax(string supply_obj_name, string total_obj_name)
+        {
+            int supply_price = UnityEngine.Random.Range(100, 100000000);
+            int total_price = supply_price;
+
+            string supply_text = string.Format("{0:#,0}", supply_price);
+            string total_text = string.Format("{0:#,0}", total_price);
+
+            GameObject.Find(supply_obj_name).GetComponent<TMP_Text>().SetText(supply_text);
+            GameObject.Find(total_obj_name).GetComponent<TMP_Text>().SetText(total_text);
+        }
         public static void Gen_ListContents(List<string> goods_list)
         {
             int gen_list_num = UnityEngine.Random.Range(1, 5); //목록 리스트가 4개
@@ -159,7 +187,10 @@ namespace TaxBillTextGen_Script
                 Gen_ListDate(month_obj_name, day_obj_name);
                 Gen_ListGoodsName(goods_name_obj_name, goods_list);
                 Gen_ListGoodsNum(goods_num_obj_name);
-                Gen_ListPrice(supply_obj_name, tax_obj_name, total_obj_name);
+                if (GameObject.Find(tax_obj_name))
+                    Gen_ListPrice(supply_obj_name, tax_obj_name, total_obj_name);
+                else
+                    Gen_ListPriceNoTax(supply_obj_name, total_obj_name);
             }
 
             for (int i = 4; gen_list_num < i; i--)
@@ -177,7 +208,8 @@ namespace TaxBillTextGen_Script
                 GameObject.Find(goods_name_obj_name).GetComponent<TMP_Text>().SetText(" ");
                 GameObject.Find(goods_num_obj_name).GetComponent<TMP_Text>().SetText(" ");
                 GameObject.Find(supply_obj_name).GetComponent<TMP_Text>().SetText(" ");
-                GameObject.Find(tax_obj_name).GetComponent<TMP_Text>().SetText(" ");
+                if (GameObject.Find(tax_obj_name))
+                    GameObject.Find(tax_obj_name).GetComponent<TMP_Text>().SetText(" ");
                 GameObject.Find(total_obj_name).GetComponent<TMP_Text>().SetText(" ");
             }
         }

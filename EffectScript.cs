@@ -77,7 +77,7 @@ namespace Effect_Script
             
         }
         
-        public static void CharShadowOrLight_On(List<string> feature_name_list)
+        public static void CharShadowOrLight_On(List<string> feature_name_list, string model_obj_name)
         {
             // shadow or light 
             int shadow_or_light = UnityEngine.Random.Range(0, 2);
@@ -91,7 +91,7 @@ namespace Effect_Script
             //transform
             float x_offset = 2.0f;
             float z_offset = 3.0f;
-            Bounds inner_bounds = GameObject.Find("Inner").GetComponent<MeshRenderer>().bounds;
+            Bounds inner_bounds = GameObject.Find(model_obj_name).GetComponent<MeshRenderer>().bounds;
             float obj_pos_x = UnityEngine.Random.Range(inner_bounds.min.x - x_offset, inner_bounds.max.x + x_offset);
             float obj_pos_y = UnityEngine.Random.Range(0.5f, 10.0f);
             float obj_pos_z = UnityEngine.Random.Range(inner_bounds.min.z - z_offset, inner_bounds.max.z + z_offset);         

@@ -315,4 +315,188 @@ namespace BoundingBox_Script
             return delSpace_screenCharInfos_list;
         }
     }
+    public static class MinimalBoundingBox
+    {
+        /// <summary>
+		/// Calculates the minimum bounding box.
+		/// </summary>
+		/// <param name="points">Bounding Box.</param>
+        public static List<Vector2> Calculate(List<Vector2> points)
+        {
+            //calculate the convex hull
+            List<Vector2> hullPoints = ConvexHull(points);
+
+            //check if no bounding box available
+            if (hullPoints.Count <= 1)
+                return hullPoints;
+
+            Rectangle2d minBox = null;
+            float minAngle = 0;
+
+            //foreach edge of the convex hull
+            for (int i = 0; i < hullPoints.Count; i++)
+            {
+                int nextIndex = i + 1;
+                Vector2 current = hullPoints[i];
+                Vector2 next = hullPoints[nextIndex % hullPoints.Count];
+                Segment2d segment = new Segment2d(current, next);
+
+                //min / max points
+                float top = float.MinValue;
+                float bottom = float.MaxValue;
+                float left = float.MaxValue;
+                float right = float.MinValue;
+
+                //get angle of segment to x axis
+                float angle = AngleToXAxis(segment);
+
+                //rotate every point and get min and max values for each direction
+                foreach (Vector2 p in hullPoints)
+                {
+                    Vector2 rotatedPoint = RotateToXAxis(p, angle);
+
+                    top = Mathf.Max(top, rotatedPoint.y);
+                    bottom = Mathf.Min(bottom, rotatedPoint.y);
+                    left = Mathf.Min(left, rotatedPoint.x);
+                    right = Mathf.Max(right, rotatedPoint.x);
+                }
+
+                //create axis aligned bounding box
+                Rectangle2d box = new Rectangle2d(new Vector2(left, bottom), new Vector2(right, top));
+
+                if (minBox == null || minBox.Area() > box.Area())
+                {
+                    minBox = box;
+                    minAngle = angle;
+                }
+            }
+
+            //rotate axis algined box back
+            List<Vector2> minimalBoundingBox = minBox.Points.Select(p => RotateToXAxis(p, -minAngle)).ToList();
+
+            return minimalBoundingBox;
+        }
+        public static List<Vector2> ConvexHull(List<Vector2> points)
+        {
+            //sort vectors
+            points.Sort((a,b) => a.x.CompareTo(b.x));
+            //List<Vector2> hullPoints = new List<Vector2>();
+            Vector2[] hullPoints = new Vector2[2 * points.Count];
+
+            //break if only one point as input
+            if (points.Count <= 1)
+                return points;
+
+            int pointLength = points.Count;
+            int counter = 0;
+
+            //iterate for lowerHull
+            for (int i = 0; i < pointLength; ++i)
+            {
+                while (counter >= 2 && Cross(hullPoints[counter - 2], hullPoints[counter - 1], points[i]) <= 0)
+                    counter--;
+                hullPoints[counter++] = points[i];
+            }
+
+            //iterate for upperHull
+            for (int i = pointLength - 2, j = counter + 1; i >= 0; i--)
+            {
+                while (counter >= j && Cross(hullPoints[counter - 2],
+                           hullPoints[counter - 1],
+                           points[i]) <= 0)
+                    counter--;
+                hullPoints[counter++] = points[i];
+            }
+
+            //remove duplicate start points
+            //List<Vector2> result = hullPoints.GetRange(0, counter - 1);
+            List<Vector2> result = hullPoints.ToList().GetRange(0, counter - 1);
+            return result;
+        }
+
+        static float AngleToXAxis(Segment2d s)
+        {
+            Vector2 delta = s.A - s.B;
+            return -Mathf.Atan(delta.y / delta.x);
+        }
+        static Vector2 RotateToXAxis(Vector2 v, float angle)
+        {
+            float newX = v.x * Mathf.Cos(angle) - v.y * Mathf.Sin(angle);
+            float newY = v.x * Mathf.Sin(angle) + v.y * Mathf.Cos(angle);
+
+            return new Vector2(newX, newY);
+        }
+
+        /// <summary>
+		/// Cross the specified o, a and b.
+		/// Zero if collinear
+		/// Positive if counter-clockwise
+		/// Negative if clockwise
+		/// </summary>
+		/// <param name="o">O.</param>
+		/// <param name="a">The alpha component.</param>
+		/// <param name="b">The blue component.</param>
+        public static float Cross(Vector2 o, Vector2 a, Vector2 b)
+        {
+            return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+        }
+    }
+    public class Rectangle2d
+    {
+        public Vector2 location { get; set; }
+        public Vector2 size { get; set; }
+        public Rectangle2d()
+        {
+        }
+        public Rectangle2d(Vector2 a, Vector2 c) : this()
+        {
+            location = a;
+            size = c - a;
+        }
+        public float Area()
+        {
+            return size.x * size.y;
+        }
+        public List<Vector2> Points
+        {
+            get
+            {
+                return new List<Vector2>{
+                    new Vector2 (location.x, location.y),
+                    new Vector2 (location.x + size.x, location.y),
+                    new Vector2 (location.x + size.x, location.y + size.y),
+                    new Vector2 (location.x, location.y + size.y)
+                };
+            }
+        }
+    }
+    public class Segment2d : Line2d
+    {
+        /// <summary>
+        /// Second Point of Line.
+        /// </summary>
+        /// <value>The b.</value>
+        public Vector2 B { get; set; }
+
+        public Segment2d(Vector2 point1, Vector2 point2) :
+            base(point1, point2 - point1)
+        {
+            B = point2;
+        }
+
+        public float Length()
+        {
+            return Mathf.Abs(Vector2.Distance(A, B));
+        }
+    }
+    public class Line2d
+    {
+        public Vector2 A { get; set; }
+        public Vector2 R { get; set; }
+        public Line2d(Vector2 position, Vector2 direction)
+        {
+            A = position;
+            R = direction;
+        }
+    }
 }

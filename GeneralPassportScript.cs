@@ -136,7 +136,7 @@ public class GeneralPassportScript : MonoBehaviour
                 Passport_TextChange();
 
                 Effect_Env.TempleteReflectLight_Point(feature_ExtractName);
-                Effect_Env.CharShadowOrLight_On(feature_ExtractName);
+                Effect_Env.CharShadowOrLight_On(feature_ExtractName, "Inner");
                 Effect_Env.StudioBrightness_On();
 
                 useHologram = Hologram.CreateHologram(random_hologram_freq, holo_filenames, instanceList, feature_ExtractName);

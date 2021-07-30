@@ -22,7 +22,7 @@ using CalcCoord_Script;
 using ReceiptTag_Script;
 using TaxBillTextGen_Script;
 
-namespace TaxBill_Script
+namespace Bill_Script
 {
     public struct FileDataSet
     {
@@ -52,6 +52,7 @@ namespace TaxBill_Script
         public static void CreateSaveFolder()
         {
             string scene_name = SceneManager.GetActiveScene().name;
+
             string root_path = Application.persistentDataPath + "/" + scene_name;
             CreateDir(root_path);
             CreateDir(root_path + "/rgb");
@@ -125,7 +126,6 @@ namespace TaxBill_Script
             GameObject model_package = CreateObj("Model_Package", GameObject.Find("SceneManager").transform);
             GameObject main_model = CreateObj("Model", model_package.transform);
             string model_path = SelectOneModelPath(model_folder_path);
-            //string model_path = "Meshes/real_card";
             AddModelAttr(main_model, model_path, mat_path);
             List<Vector3> main_model_vertices = main_model.GetComponent<MeshFilter>().mesh.vertices.ToList();
 
@@ -239,12 +239,12 @@ namespace TaxBill_Script
             if (who == 0) // giver
             {
                 target.text = "공급자";
-                target.characterSpacing = 65.69f;
+                target.characterSpacing = 52.7f;
                 List<string> color_obj_list = GetColorTextObjName(TaxBill.templete_name);
                 Color red = new Color32(173, 45, 33, 255);
                 SetTextColor(color_obj_list, red);
                 // templete layer templete giver 로 변경
-                string templete_path = "Textures/TempleteTexture/ReceiptTexture/taxbill_templete_layout_giver";
+                string templete_path = "Textures/TempleteTexture/ReceiptTexture/bill_templete_layout_giver";
                 GameObject.Find(TaxBill.templete_name).GetComponent<MeshRenderer>().material.mainTexture = Resources.Load<Texture2D>(templete_path);
             }
             else // taker
@@ -255,7 +255,7 @@ namespace TaxBill_Script
                 Color blue = new Color32(9, 104, 214, 255);
                 SetTextColor(color_obj_list, blue);
                 // templete layer red 로 변경
-                string templete_path = "Textures/TempleteTexture/ReceiptTexture/taxbill_templete_layout_taker";
+                string templete_path = "Textures/TempleteTexture/ReceiptTexture/bill_templete_layout_taker";
                 GameObject.Find(TaxBill.templete_name).GetComponent<MeshRenderer>().material.mainTexture = Resources.Load<Texture2D>(templete_path);
             }
         }
@@ -277,7 +277,7 @@ namespace TaxBill_Script
             RandomTextTaxBill.Gen_Category("공급받는자-업태-내용", TaxBill.dataset.business_category);
             RandomTextTaxBill.Gen_type("공급받는자-종목-내용", TaxBill.dataset.business_type);
             RandomTextTaxBill.Gen_Date("작성-년월일-내용_part1", "작성-년월일-내용_part2", "작성-년월일-내용_part3");
-            RandomTextTaxBill.Gen_SupplyPrice("공급가액-금액-공란수-내용", "공급가액-금액-내용", "세액-내용", "합계금액-내용");
+            RandomTextTaxBill.Gen_SupplyPriceNoTax("공급가액-금액-공란수-내용", "공급가액-금액-내용", "합계금액-내용");
             RandomTextTaxBill.Gen_ListContents(TaxBill.dataset.goods_name);
         }
         public static void RunTaggingModel(int stage_cnt, bool DebugCameraFix)
@@ -294,16 +294,15 @@ namespace TaxBill_Script
             else if (abs_rot_z >= 20 && abs_rot_z < 35) // 20~35
                 pos_y = 13f;
             else if (abs_rot_z >= 35 && abs_rot_z < 90) // 35~90
-                pos_y = 13f - (0.08f * (abs_rot_z-35));
+                pos_y = 13f - (0.08f * (abs_rot_z - 35));
             else if (abs_rot_z >= 90 && abs_rot_z < 145) // 90~145
                 pos_y = 7.3f + (0.13f * (abs_rot_z - 90));
             else if (abs_rot_z >= 145 && abs_rot_z < 160) // 145~160
                 pos_y = 13f;
             else // 160~180
-                pos_y = 12.8f - (0.08f * (abs_rot_z-160));
+                pos_y = 12.8f - (0.08f * (abs_rot_z - 160));
 
             ca_tf.position = new Vector3(ca_tf.position.x, pos_y + 0.2f, ca_tf.position.z);
-
 
             // 모델 관련
             func_collect.CreateTaggingModel();
@@ -365,7 +364,7 @@ namespace TaxBill_Script
         public static string tagging_file_path;
         public static FileDataSet dataset;
     }
-    public class TaxBillScript : MonoBehaviour
+    public class BillScript : MonoBehaviour
     {
         public bool isTagData = false;
         public int iter = 10;
@@ -383,7 +382,7 @@ namespace TaxBill_Script
             TaxBill.root_path = Application.persistentDataPath + "/" + SceneManager.GetActiveScene().name;
             TaxBill.background = Resources.LoadAll<Texture>("Background"); //"Background/Debug"
             TaxBill.model_path = "Meshes/inner_pages"; //"Meshes/Paper"
-            TaxBill.mat_path = "Materials/Receipt/TaxbillRenderTextureMat";
+            TaxBill.mat_path = "Materials/Receipt/billRenderTextureMat";
             TaxBill.mesh_tess = new Vector2Int(16, 24); //mesh info
             TaxBill.tagging_folder = "D:/nullee/data/태깅_데이터"; // Z:\\Workspace\\data\\nullee_invoice\\태깅_아르바이트\\작업물_권현지\\완료\\세금계산서
             func_collect.CreateSaveFolder();

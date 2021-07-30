@@ -190,10 +190,8 @@ namespace CalcCoord_Script
 
             return new Vector2[] { left_top, right_top, right_bottom, left_bottom };
         }
-        public static (List<List<char>>, List<string>, List<List<Vector3>>, List<List<Vector3>>) ExtractWorldAndCoord(List<List<TMP_CharacterInfo>> origin_info_list)
+        public static (List<List<char>>, List<string>, List<List<Vector3>>, List<List<Vector3>>) ExtractWorldAndCoord(List<List<TMP_CharacterInfo>> char_info_line)
         {
-            List<List<TMP_CharacterInfo>> char_info_line = origin_info_list;
-
             List<List<char>> chars_delSpace_list = new List<List<char>>();
             List<List<Vector3>> chars_coord = new List<List<Vector3>>();
             List<string> worlds = new List<string>();
@@ -221,7 +219,36 @@ namespace CalcCoord_Script
             }
 
             return (chars_delSpace_list, worlds, chars_coord, words_coord_list);
-        }   
+        }  
+        public static (List<List<List<char>>>, List<string>, List<List<Vector3>>, List<List<Vector3>>) ExtractMergeWorldAndCoord(List<List<TMP_CharacterInfo>> char_info_line)
+        {
+            List<List<List<char>>> chars_delSpace_list = new List<List<List<char>>>(); //라인 - 단어 - 캐릭터
+            List<List<Vector3>> chars_coord = new List<List<Vector3>>();
+            List<string> worlds = new List<string>();
+            List<List<Vector3>> words_coord_list = new List<List<Vector3>>();
+
+            foreach (List<TMP_CharacterInfo> char_info in char_info_line)
+            {
+                // 글자 좌표 정보 추출
+                var charAndSpaceInfo = ExtractCharAndSpaceInfo(char_info);
+                List<List<Vector3>> charCoord_inWord = charAndSpaceInfo.Item1;
+                chars_coord.AddRange(charCoord_inWord);
+                // 글자 내용 추출
+                List<char> chars = charAndSpaceInfo.Item2;
+                List<int> word_firstIndicies = charAndSpaceInfo.Item3;
+                List<int> word_lastIndicies = charAndSpaceInfo.Item4;
+                List<List<char>> chars_delSpace = CombineChar_UseWordLength(word_firstIndicies, word_lastIndicies, chars);
+                chars_delSpace_list.Add(chars_delSpace);
+                // 글자 내용 단어 내용으로 만들기
+                string text = new string(chars.ToArray());
+                worlds.Add(text);
+                // 글자 좌표 정보 만들기
+                List<List<Vector3>> word_coord = MakeMergeWordBoundingBoxData(word_firstIndicies, word_lastIndicies, chars_delSpace, charCoord_inWord, char_info);
+                words_coord_list.AddRange(word_coord);
+            }
+
+            return (chars_delSpace_list, worlds, chars_coord, words_coord_list);
+        }
         public static (Vector3, Vector3) CalcScaleAndOffset(string feature_name)
         {
             TMP_Text textComponent = GameObject.Find(feature_name).GetComponent<TMP_Text>();
@@ -348,6 +375,35 @@ namespace CalcCoord_Script
                 word_coord.Add(coord);
             }
             return word_coord;
+        }
+        public static List<List<Vector3>> MakeMergeWordBoundingBoxData(List<int> word_firstIndicies, List<int> world_lastIndicies, List<List<char>> chars_delSpace_list, List<List<Vector3>> char_coord, List<TMP_CharacterInfo> char_info)
+        {
+            List<List<Vector3>> oneLineWordsCoods = MakeWordBoundingBoxData(word_firstIndicies, world_lastIndicies, chars_delSpace_list, char_coord, char_info);
+            float x_max = 0;
+            float x_min = 10000;
+            float y_max = 0;
+            float y_min = 10000;
+            foreach (List<Vector3> wordCoord in oneLineWordsCoods)
+            {
+                foreach(Vector3 coord in wordCoord)
+                {
+                    if (x_max < coord.y)
+                        x_max = coord.y;
+                    if (x_min > coord.y)
+                        x_min = coord.y;
+                    if (y_max < coord.y)
+                        y_max = coord.y;
+                    if (y_min > coord.y)
+                        y_min = coord.y;
+                }
+            }
+            Vector3 topLeft = new Vector3(x_min, y_max, 0);
+            Vector3 topRight = new Vector3(x_max, y_max, 0);
+            Vector3 bottomLeft = new Vector3(x_min, y_min, 0);
+            Vector3 bottomRight = new Vector3(x_max, y_min, 0);
+
+            List<Vector3> merge_coord = new List<Vector3>() { topLeft, topRight, bottomLeft, bottomRight };
+            return new List<List<Vector3>>() { merge_coord };
         }
     }
     public class DataNeeds

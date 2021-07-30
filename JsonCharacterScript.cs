@@ -77,8 +77,7 @@ namespace JsonData_Script
                 if (text_info.Item1.Count == 0 || text_info.Item1[0].Count == 0)
                     continue;
 
-                List<Words> words_list = new List<Words>();
-                words_list = ExtractWordInfo(text_info.Item1, tmp_obj_name, img_angle);
+                List<Words> words_list = ExtractWordInfo(text_info.Item1, tmp_obj_name, img_angle, true);
                 segment.words = words_list;
                 seg_info.segment_list[i] = segment;
             }
@@ -91,19 +90,19 @@ namespace JsonData_Script
                 seg_info.segment_list.RemoveAt(index);
             return seg_info;
         }
-        public static string MakeBoundingBoxData(List<string> feature_names, string filename)
+        public static string MakeBoundingBoxData(List<string> feature_names, string filename, bool isMergeWordsInLine = false)
         {
             // json 개별 저장을 위해
             SegmentationInfoList segmentation_info_list = new SegmentationInfoList();
             segmentation_info_list.camera_angle = CalcRotateAngle(); //카메라 앵글값 저장, 모델각도는 (0,0,0)으로 가정
-            SegmentationInfo seg_info = CreateSeginfoAndAddObjName(segmentation_info_list, feature_names, filename);
-            AddTextInfo(seg_info, segmentation_info_list.camera_angle);
+            SegmentationInfo seg_info = CreateSeginfoAndAddObjName(segmentation_info_list, feature_names, filename); // 오브젝트 이름과 빈 리스트만 넣어줌
+            AddTextInfo(seg_info, segmentation_info_list.camera_angle); // 텍스트의 좌표를 구함
             List<int> removeIndex = new List<int>();
-            seg_info = RemoveOutofScreenIndex(seg_info, removeIndex);
-            List<Segment> removed_empty_segments_list = DelEmptySegment(seg_info.segment_list);
-            bool is_parts_exist = IsInPartsOfWord(removed_empty_segments_list);
+            seg_info = RemoveOutofScreenIndex(seg_info, removeIndex); // 화면 밖에 나간 글자 제외시킴
+            List<Segment> removed_empty_segments_list = DelEmptySegment(seg_info.segment_list); // 가끔 쓰레기값이 들어옴
+            bool is_parts_exist = IsInPartsOfWord(removed_empty_segments_list); // _part1 의 이름을 가진 오브젝트들를 찾는다
             if (is_parts_exist)
-                seg_info.segment_list = CombinePartsOfWord(seg_info.segment_list, segmentation_info_list.camera_angle);
+                seg_info.segment_list = CombinePartsOfWord(seg_info.segment_list, segmentation_info_list.camera_angle); // _part{num} 의 값들을 하나로 합친다
             segmentation_info_list.info_list[segmentation_info_list.info_list.Count - 1] = seg_info;
             string json_seg_info_list = UnityEngine.JsonUtility.ToJson(segmentation_info_list, true);
             return json_seg_info_list;
@@ -114,9 +113,9 @@ namespace JsonData_Script
             Bounds bounds = model.GetComponent<MeshFilter>().mesh.bounds;
             Vector3 model_tl = Camera.main.WorldToScreenPoint(new Vector3(0, 0, bounds.size.z));
             Vector3 model_tr = Camera.main.WorldToScreenPoint(new Vector3(0, 0, 0));
-            float x_len = Mathf.Abs(model_tl.x - model_tr.x);
-            float y_len = Mathf.Abs(model_tl.y - model_tr.y);
-            float angle = (float)Math.Round(Mathf.Atan2(y_len, x_len) / Math.PI * 180, 3);
+            float x_len = model_tr.x - model_tl.x;
+            float y_len = model_tr.y - model_tl.y;
+            float angle = (float)Math.Round(Mathf.Atan2(-y_len, x_len) / Math.PI * 180, 3);
 
             return angle;
         }
@@ -181,7 +180,7 @@ namespace JsonData_Script
 
                 Words combined_words = new Words();
                 combined_words.transcription = string.Join("", combined_text);
-                combined_words.word_points = CalcDistortionWordCoord(combined_chars, img_angle);//MakeCombinedWordcoord(combined_chars);
+                combined_words.word_points = MakeCharsMinimalBoundingBox(combined_chars);
                 combined_words.chars = combined_chars;
 
                 Segment combined_segment = new Segment();
@@ -216,7 +215,7 @@ namespace JsonData_Script
             }
             return (combined_text, combined_chars, del_indicies);
         }
-        public static List<Vector2> MakeCombinedWordcoord(List<Chars> combined_char_info, float img_rot_angle)
+        public static List<Vector2> MakeCombinedWordcoord(List<Chars> combined_char_info)
         {
             Vector2 left_top;
             Vector2 left_bottom;
@@ -242,74 +241,6 @@ namespace JsonData_Script
             right_bottom = combined_char_info[combined_char_info.Count - 1].char_points[2];
             return new List<Vector2>() { left_top, right_top, right_bottom, left_bottom };
         }
-        public static List<Vector2> CalcDistortionWordCoord(List<Chars> combined_char_info, float img_rot_angle)
-        {
-            List<Vector2> forward_all_char_coords = CalcBeforeRotateCoordAllChar(combined_char_info, img_rot_angle);
-            List<Vector2> forward_word_coord = CalcForwardWordCoord(forward_all_char_coords);
-            List<Vector2> word_coord = CalcRotateCoord(forward_word_coord, img_rot_angle);
-            return word_coord;
-        }
-        public static List<Vector2> CalcRotateCoord(List<Vector2> forward_word_coord, float img_rot_angle)
-        {
-            List<Vector2> word_coord = new List<Vector2>();
-            foreach (Vector2 coord in forward_word_coord)
-            {
-                // 좌표 회전변환
-                float forward_x = coord.x * Mathf.Cos(img_rot_angle) + coord.y * Mathf.Sin(img_rot_angle);
-                float forward_y = coord.y * Mathf.Cos(img_rot_angle) - coord.x * Mathf.Sin(img_rot_angle);
-                Vector2 forward_vertor = new Vector2(forward_x, forward_y);
-                word_coord.Add(forward_vertor);
-            }
-            return word_coord;
-        }
-        public static List<Vector2> CalcForwardWordCoord(List<Vector2> forward_coord)
-        {
-            float min_x = 100000;
-            float min_y = 100000;
-            float max_x = 0;
-            float max_y = 0;
-            foreach (Vector2 coord in forward_coord)
-            {
-                if (min_x > coord.x)
-                    min_x = coord.x;
-                if (min_y > coord.y)
-                    min_y = coord.y;
-                if (max_x < coord.x)
-                    max_x = coord.x;
-                if (max_y < coord.y)
-                    max_y = coord.y;
-            }
-            Vector2 top_left = new Vector2(min_x, min_y);
-            Vector2 top_right = new Vector2(max_x, min_y);
-            Vector2 bot_right = new Vector2(max_x, max_y);
-            Vector2 bot_left = new Vector2(min_x, max_y);
-            return new List<Vector2>() { top_left, top_right, bot_right, bot_left };
-        }
-        public static List<Vector2> CalcBeforeRotateCoordAllChar(List<Chars> combined_char_info, float img_rot_angle)
-        {
-            List<Vector2> forward_coord = new List<Vector2>();
-            foreach (Chars char_info in combined_char_info)
-            {
-                List<Vector2> char_coord = char_info.char_points;
-                foreach (Vector2 coord in char_coord)
-                {
-                    // 좌표 회전변환
-                    float forward_x = coord.x * Mathf.Cos(img_rot_angle) + coord.y * Mathf.Sin(img_rot_angle);
-                    float forward_y = coord.y * Mathf.Cos(img_rot_angle) - coord.x * Mathf.Sin(img_rot_angle);
-                    Vector2 forward_vertor = new Vector2(forward_x, forward_y);
-                    forward_coord.Add(forward_vertor);
-                }
-            }
-            return forward_coord;
-        }
-        public static Words MakeCombinedWords(List<Chars> combined_char_info, string combined_text, float img_angle)
-        {
-            Words combined_words = new Words();
-            combined_words.transcription = combined_text;
-            combined_words.word_points = CalcDistortionWordCoord(combined_char_info, img_angle);//MakeCombinedWordcoord(combined_char_info);
-            combined_words.chars = combined_char_info;
-            return combined_words;
-        }
         public static List<string> GetSeperateWordList(List<Segment> segment_list)
         {
             // 조각난 단어 종류별로 이름 뽑기
@@ -331,37 +262,94 @@ namespace JsonData_Script
         public static List<Chars> ExtractCharInfoFromWord(List<char> char_oneWord, string tmp_obj_name, List<List<Vector3>> char_coord, int char_count)
         {
             List<Chars> chars_list = new List<Chars>();
+
+            int char_index;
+            Vector2[] char_points;
             for (int k = 0; k < char_oneWord.Count; k++)
             {
-                int char_index = char_count + k;
+                char_index = char_count + k;
                 Chars chars = new Chars();
-                Vector2[] char_points = CalcCoord.CalcQuadForFeature(tmp_obj_name, char_coord[char_index]);
+                char_points = CalcCoord.CalcQuadForFeature(tmp_obj_name, char_coord[char_index]);
                 chars.transcription = char_oneWord[k].ToString();
                 chars.char_points = char_points.ToList();
                 chars_list.Add(chars);
             }
             return chars_list;
         }
-        public static List<Words> ExtractWordInfo(List<List<TMPro.TMP_CharacterInfo>> word_list, string tmp_obj_name, float img_angle)
+        public static List<Words> ExtractWordInfo(List<List<TMPro.TMP_CharacterInfo>> charsInLine_list, string tmp_obj_name, float img_angle, bool isMergeLineWords = false)
         {
             List<Words> words_list = new List<Words>();
-            var word_info = CalcCoord.ExtractWorldAndCoord(word_list);
+            
+            if (isMergeLineWords)
+            {
+                var word_info = CalcCoord.ExtractMergeWorldAndCoord(charsInLine_list); // line_word_char, line_word, line_char_coord, line_word_coord
+                return CreateMergeWordsInfo(word_info, tmp_obj_name, img_angle); ;
+            }
+            else
+            {
+                var word_info = CalcCoord.ExtractWorldAndCoord(charsInLine_list); // words_char, line_word, line_char_coord, line_word_coord
+                return CreateWordsInfo(word_info, tmp_obj_name);
+            }
+                
+        }
+        public static List<Words> CreateMergeWordsInfo((List<List<List<char>>>, List<string>, List<List<Vector3>>, List<List<Vector3>>) word_info, string tmp_obj_name, float img_angle)
+        {
+            List<List<List<char>>> charInLines = word_info.Item1; // line-word-char
+            List<string> word_text_list = word_info.Item2;
+            List<List<Vector3>> char_boundingbox_list = word_info.Item3; // allchar-4coord
+            List<List<Vector3>> word_boundingbox_list = word_info.Item4;
+
+            int char_count_in_word = 0;
+            List<Words> words_list = new List<Words>();
+            for (int i = 0; i< charInLines.Count; i++)
+            {
+                List<Chars> chars_list = new List<Chars>();
+                for (int j = 0; j < charInLines[i].Count; j++)
+                {
+                    List<Chars> oneWordChars = ExtractCharInfoFromWord(charInLines[i][j], tmp_obj_name, char_boundingbox_list, char_count_in_word);
+                    chars_list.AddRange(oneWordChars);
+                    char_count_in_word += charInLines[i][j].Count;
+                }
+                Words words = new Words();
+                words.word_points = MakeCharsMinimalBoundingBox(chars_list);
+                words.chars = chars_list;
+                words.transcription = word_info.Item2[i];
+                words_list.Add(words);
+            }
+            return words_list;
+        }
+        public static List<Vector2> MakeCharsMinimalBoundingBox(List<Chars> chars_list)
+        {
+            List<Vector2> char_points = ExtractCharCoords(chars_list);
+            List<Vector2> bounding_box = MinimalBoundingBox.Calculate(char_points);
+            return bounding_box;
+        }
+        public static List<Vector2> ExtractCharCoords(List<Chars> oneWordChars)
+        {
+            List<Vector2> allCharsCoord = new List<Vector2>();
+            foreach(Chars chars in oneWordChars)
+                allCharsCoord.AddRange(chars.char_points);
+
+            return allCharsCoord;
+        }
+        public static List<Words> CreateWordsInfo((List<List<char>>, List<string>, List<List<Vector3>>, List<List<Vector3>>) word_info, string tmp_obj_name)
+        {
             List<List<Char>> char_text_list = word_info.Item1;
             List<string> word_text_list = word_info.Item2;
             List<List<Vector3>> char_boundingbox_list = word_info.Item3;
             List<List<Vector3>> word_boundingbox_list = word_info.Item4;
 
             int char_count = 0;
+            List<Words> words_list = new List<Words>();
             for (int j = 0; j < word_text_list.Count; j++)
             {
-                
                 Words words = new Words();
                 Vector2[] word_points = CalcCoord.CalcQuadForFeature(tmp_obj_name, word_boundingbox_list[j]);
                 List<Chars> chars_list = ExtractCharInfoFromWord(char_text_list[j], tmp_obj_name, char_boundingbox_list, char_count);
 
-                words.transcription = word_info.Item2[j];
-                words.word_points = CalcDistortionWordCoord(chars_list, img_angle);//word_points.ToList();
+                words.word_points = word_points.ToList();
                 words.chars = chars_list;
+                words.transcription = word_info.Item2[j];
                 words_list.Add(words);
 
                 char_count += char_text_list[j].Count;
